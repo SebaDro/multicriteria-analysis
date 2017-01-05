@@ -10,12 +10,14 @@ from arcpy.sa import *
 if len(sys.argv) >= 6:
     inWorkspace = sys.argv[1]
     outWorkspace = sys.argv[2]
-    sourceStart = sys.argv[3]
-    sourceEnd = sys.argv[4]
-    tablePath = sys.argv[5]
-    print "Input Workspace: {0}; Output workspace: {1}; Source start: {2}; Source end: {3}; Path table: {4} ".format(
+    maskFile = sys.argv[3]
+    sourceStart = sys.argv[4]
+    sourceEnd = sys.argv[5]
+    tablePath = sys.argv[6]
+    print "Input Workspace: {0}; Output workspace: {1}; Mask: {2}; Source start: {3}; Source end: {4}; Path table: {5} ".format(
         inWorkspace,
         outWorkspace,
+        maskFile,
         sourceStart,
         sourceEnd,
         tablePath)
@@ -25,13 +27,15 @@ else:
 
 # Set environment settings
 env.workspace = inWorkspace
+arcpy.env.mask = maskFile
 arcpy.env.outputCoordinateSystem = arcpy.SpatialReference(25832)
 arcpy.env.overwriteOutput = True
 
 # Set local variables
 polygon = "ca_counties.shp"
 valField = "weight"
-assignmentType = "MAXIMUM_AREA"
+assignmentTypePolygon = "MAXIMUM_AREA"
+assignmentTypePolyline = "MAXIMUM_AREA"
 # priorityField = "MALES"
 cellSize = 5.0
 joinFieldIn = "type"
@@ -44,52 +48,69 @@ weightTable = arcpy.ExcelToTable_conversion(tablePath, os.path.join(outWorkspace
 polygonList = arcpy.ListFeatureClasses("*", "Polygon")
 polylineList = arcpy.ListFeatureClasses("*", "Polyline")
 
-inRasters = ""
-mosaic = None
 
-# iterate over all polylines
-for polygon in polygonList:
-    outRaster = os.path.join(outWorkspace, os.path.splitext(polygon)[0] + "_raster")
+def polygonToRaster(polygon):
     desc = arcpy.Describe(polygon)
     layerName = desc.name
     print (layerName)
+    outRaster = os.path.join(outWorkspace, os.path.splitext(layerName)[0] + "_raster")
+    # if field <weight> already exists delete it,
+    # to join the <weight> field from the <weight> table
+    fields = arcpy.ListFields(polygon, "weight")
+    if len(fields) == 1:
+        arcpy.DeleteField_management(polygon, ["weight"])
+    # join the <weight> field from the <weight> table
+    arcpy.JoinField_management(polygon, joinFieldIn, weightTable, joinField, ["weight"])
+    # create a raster dataset from the polygon
+    rasterResult = arcpy.PolygonToRaster_conversion(polygon, valField, outRaster, assignmentTypePolygon, "", cellSize)
+    print rasterResult
+    return rasterResult
+
+
+def polylineToRaster(polyline):
+    desc = arcpy.Describe(polyline)
+    layerName = desc.name
+    outRaster = os.path.join(outWorkspace, os.path.splitext(layerName)[0] + "_raster")
+    # if field <weight> already exists delete it,
+    # to join the <weight> field from the <weight> table
+    fields = arcpy.ListFields(polyline, "weight")
+    if len(fields) == 1:
+        arcpy.DeleteField_management(polyline, ["weight"])
+    # join the <weight> field from the <weight> table
+    arcpy.JoinField_management(polyline, joinFieldIn, weightTable, joinField, ["weight"])
+    # create a raster dataset from the polyline
+    rasterResult = arcpy.PolylineToRaster_conversion(polyline, valField, outRaster, assignmentTypePolyline, "",
+                                                     cellSize)
+    print rasterResult
+    return rasterResult
+
+
+maskRaster = polygonToRaster(maskFile)
+desc = arcpy.Describe(maskRaster)
+inRasters = os.path.join(desc.path, desc.file) + ";"
+mosaic = None
+
+# convert polygons into raster datasets
+# iterate over all polygons
+for polygon in polygonList:
     try:
-        # if field <weight> already exists delete it,
-        # to join the <weight> field from the <weight> table
-        fields = arcpy.ListFields(layerName, "weight")
-        if len(fields) == 1:
-            arcpy.DeleteField_management(layerName, ["weight"])
-        # join the <weight> field from the <weight> table
-        arcpy.JoinField_management(polygon, joinFieldIn, weightTable, joinField, ["weight"])
-        # create a raster dataset from the polygon
-        rasterResult = arcpy.PolygonToRaster_conversion(polygon, valField, outRaster, assignmentType, "", cellSize)
-        print rasterResult
+        rasterResult = polygonToRaster(polygon)
         desc = arcpy.Describe(rasterResult)
         inRasters = inRasters + os.path.join(desc.path, desc.file) + ";"
-
     # Return geoprocessing specific errors
     except arcpy.ExecuteError:
         arcpy.AddError(arcpy.GetMessages(2))
     # Return any other type of error
-    except:  # By default any other errors will be caught here
+    except:
+        # By default any other errors will be caught here
         e = sys.exc_info()[1]
-        print(e.args[0])  # convert polylines into raster datasets
+        print(e.args[0])
 
+# convert polylines into raster datasets
 # iterate over all polylines
 for polyline in polylineList:
-    outRaster = os.path.join(outWorkspace, os.path.splitext(polyline)[0] + "_raster")
     try:
-        # if field <weight> already exists delete it,
-        # to join the <weight> field from the <weight> table
-        fields = arcpy.ListFields(layerName, "weight")
-        if len(fields) == 1:
-            arcpy.DeleteField_management(layerName, ["weight"])
-        # join the <weight> field from the <weight> table
-        arcpy.JoinField_management(polyline, joinFieldIn, weightTable, joinField, ["weight"])
-        # create a raster dataset from the polyline
-        rasterResult = arcpy.PolylineToRaster_conversion(polyline, valField, outRaster, "MAXIMUM_LENGTH", "",
-                                                         cellSize)
-        print rasterResult
+        rasterResult = polylineToRaster(polyline)
         desc = arcpy.Describe(rasterResult)
         inRasters = inRasters + os.path.join(desc.path, desc.file) + ";"
     # Return geoprocessing specific errors
