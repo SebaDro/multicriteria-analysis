@@ -28,6 +28,9 @@ else:
 # Set environment settings
 env.workspace = inWorkspace
 arcpy.env.mask = maskFile
+desc = arcpy.Describe(maskFile)
+print (desc.extent)
+arcpy.env.extent = desc.extent
 arcpy.env.outputCoordinateSystem = arcpy.SpatialReference(25832)
 arcpy.env.overwriteOutput = True
 
@@ -87,6 +90,7 @@ def polylineToRaster(polyline):
 
 maskRaster = polygonToRaster(maskFile)
 desc = arcpy.Describe(maskRaster)
+#desc = arcpy.Describe(maskFile)
 inRasters = os.path.join(desc.path, desc.file) + ";"
 mosaic = None
 
@@ -130,6 +134,7 @@ mosaic = arcpy.MosaicToNewRaster_management(inRasters, outWorkspace, "mosaic", "
                                             "MAXIMUM", "MATCH")
 print("Mosaic created")
 
+
 # Check out the ArcGIS Spatial Analyst extension license
 arcpy.CheckOutExtension("Spatial")
 
@@ -156,3 +161,4 @@ except:
     print(e.args[0])
 finally:
     arcpy.CheckInExtension("Spatial")
+
