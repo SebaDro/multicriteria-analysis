@@ -5,6 +5,7 @@ import os
 from arcpy import env
 from arcpy.sa import *
 
+"""
 # get parameters from the script parameters
 # and ensure the correct number of parameters
 if len(sys.argv) >= 6:
@@ -24,6 +25,14 @@ if len(sys.argv) >= 6:
 else:
     print "Usage: corridor_calculation <input_workspace> <output_workspace> <source_start> <source_end>"
     sys.exit()
+"""
+
+inWorkspace = arcpy.GetParameterAsText(0)
+outWorkspace = arcpy.GetParameterAsText(1)
+maskFile = arcpy.GetParameterAsText(2)
+sourceStart = arcpy.GetParameterAsText(3)
+sourceEnd = arcpy.GetParameterAsText(4)
+tablePath = arcpy.GetParameterAsText(5)
 
 # Set environment settings
 env.workspace = inWorkspace
@@ -54,6 +63,7 @@ featureList = arcpy.ListFeatureClasses("*", "All")
 def featureToRaster(feature):
     desc = arcpy.Describe(feature)
     layerName = desc.name
+    arcpy.AddMessage("Layer {0} will be converted to Raster...".format(layerName))
     print (layerName)
     outRaster = os.path.join(outWorkspace, os.path.splitext(layerName)[0] + "_raster")
     # if field <weight> already exists delete it,
@@ -70,7 +80,7 @@ def featureToRaster(feature):
     elif desc.shapeType == "Polyline":
         rasterResult = arcpy.PolylineToRaster_conversion(feature, valField, outRaster, assignmentTypePolyline, "",
                                                          cellSize)
-    print rasterResult
+    arcpy.AddMessage("Raster {0} has been created.".format(rasterResult))
     return rasterResult
 
 
@@ -98,36 +108,44 @@ for feature in featureList:
 inRasters = inRasters[0:-1]
 print inRasters
 
+arcpy.AddMessage("Mosaic will be created...")
 # raster datasets must have the same extent
 mosaic = arcpy.MosaicToNewRaster_management(inRasters, outWorkspace, "mosaic", "", "8_BIT_UNSIGNED", "5", "1",
                                             "MAXIMUM", "MATCH")
+arcpy.AddMessage("Mosaic has been created.")
 print("Mosaic created")
 
-"""
 # Check out the ArcGIS Spatial Analyst extension license
 arcpy.CheckOutExtension("Spatial")
 
 try:
     # Execute CostDistance for start point
     print("create OutCostDistanceStart")
+    arcpy.AddMessage("OutCostDistanceStart will be created.")
     outCostDistanceStart = CostDistance(sourceStart, mosaic, "", "")
     print("save OutCostDistanceStart")
     outCostDistanceStart.save(os.path.join(outWorkspace, "distance_start"))
+    arcpy.AddMessage("OutCostDistanceStart has been created.")
     print("OutCostDistanceStart created")
     # Execute CostDistance for end point
     print("create OutCostDistanceEnd")
+    arcpy.AddMessage("OutCostDistanceStart will be created.")
     outCostDistanceEnd = CostDistance(sourceEnd, mosaic, "", "")
     print("save OutCostDistanceEnd")
     outCostDistanceEnd.save(os.path.join(outWorkspace, "distance_end"))
+    arcpy.AddMessage("OutCostDistanceStart has been created.")
     print("OutCostDistanceEnd created")
+    # Execute Corridor
+    arcpy.AddMessage("Corridor will be created.")
+    outCorridor = Corridor(outCostDistanceStart, outCostDistanceEnd)
+    # Save the output
+    outCorridor.save(os.path.join(outWorkspace, "corridor"))
+    arcpy.AddMessage("Corridor has been created.")
 # Return geoprocessing specific errors
 except arcpy.ExecuteError:
-    arcpy.AddError(arcpy.GetMessages(2))
-# Return any other type of error
-except:
-    # By default any other errors will be caught here
+    arcpy.AddError(arcpy.GetMessages(2))  # Return any other type of error
+except:  # By default any other errors will be caught here
     e = sys.exc_info()[1]
     print(e.args[0])
 finally:
     arcpy.CheckInExtension("Spatial")
-"""
