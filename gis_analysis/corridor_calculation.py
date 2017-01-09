@@ -48,73 +48,42 @@ weightTableName = "weight_table"
 # create table for weights from excel
 weightTable = arcpy.ExcelToTable_conversion(tablePath, os.path.join(outWorkspace, weightTableName))
 
-polygonList = arcpy.ListFeatureClasses("*", "Polygon")
-polylineList = arcpy.ListFeatureClasses("*", "Polyline")
+featureList = arcpy.ListFeatureClasses("*", "All")
 
 
-def polygonToRaster(polygon):
-    desc = arcpy.Describe(polygon)
+def featureToRaster(feature):
+    desc = arcpy.Describe(feature)
     layerName = desc.name
     print (layerName)
     outRaster = os.path.join(outWorkspace, os.path.splitext(layerName)[0] + "_raster")
     # if field <weight> already exists delete it,
     # to join the <weight> field from the <weight> table
-    fields = arcpy.ListFields(polygon, "weight")
+    fields = arcpy.ListFields(feature, "weight")
     if len(fields) == 1:
-        arcpy.DeleteField_management(polygon, ["weight"])
+        arcpy.DeleteField_management(feature, ["weight"])
     # join the <weight> field from the <weight> table
-    arcpy.JoinField_management(polygon, joinFieldIn, weightTable, joinField, ["weight"])
+    arcpy.JoinField_management(feature, joinFieldIn, weightTable, joinField, ["weight"])
     # create a raster dataset from the polygon
-    rasterResult = arcpy.PolygonToRaster_conversion(polygon, valField, outRaster, assignmentTypePolygon, "", cellSize)
+    if desc.shapeType == "Polygon":
+        rasterResult = arcpy.PolygonToRaster_conversion(feature, valField, outRaster, assignmentTypePolygon, "",
+                                                        cellSize)
+    elif desc.shapeType == "Polyline":
+        rasterResult = arcpy.PolylineToRaster_conversion(feature, valField, outRaster, assignmentTypePolyline, "",
+                                                         cellSize)
     print rasterResult
     return rasterResult
 
 
-def polylineToRaster(polyline):
-    desc = arcpy.Describe(polyline)
-    layerName = desc.name
-    outRaster = os.path.join(outWorkspace, os.path.splitext(layerName)[0] + "_raster")
-    # if field <weight> already exists delete it,
-    # to join the <weight> field from the <weight> table
-    fields = arcpy.ListFields(polyline, "weight")
-    if len(fields) == 1:
-        arcpy.DeleteField_management(polyline, ["weight"])
-    # join the <weight> field from the <weight> table
-    arcpy.JoinField_management(polyline, joinFieldIn, weightTable, joinField, ["weight"])
-    # create a raster dataset from the polyline
-    rasterResult = arcpy.PolylineToRaster_conversion(polyline, valField, outRaster, assignmentTypePolyline, "",
-                                                     cellSize)
-    print rasterResult
-    return rasterResult
-
-
-maskRaster = polygonToRaster(maskFile)
+maskRaster = featureToRaster(maskFile)
 desc = arcpy.Describe(maskRaster)
-#desc = arcpy.Describe(maskFile)
 inRasters = os.path.join(desc.path, desc.file) + ";"
 mosaic = None
 
 # convert polygons into raster datasets
 # iterate over all polygons
-for polygon in polygonList:
+for feature in featureList:
     try:
-        rasterResult = polygonToRaster(polygon)
-        desc = arcpy.Describe(rasterResult)
-        inRasters = inRasters + os.path.join(desc.path, desc.file) + ";"
-    # Return geoprocessing specific errors
-    except arcpy.ExecuteError:
-        arcpy.AddError(arcpy.GetMessages(2))
-    # Return any other type of error
-    except:
-        # By default any other errors will be caught here
-        e = sys.exc_info()[1]
-        print(e.args[0])
-
-# convert polylines into raster datasets
-# iterate over all polylines
-for polyline in polylineList:
-    try:
-        rasterResult = polylineToRaster(polyline)
+        rasterResult = featureToRaster(feature)
         desc = arcpy.Describe(rasterResult)
         inRasters = inRasters + os.path.join(desc.path, desc.file) + ";"
     # Return geoprocessing specific errors
@@ -134,7 +103,7 @@ mosaic = arcpy.MosaicToNewRaster_management(inRasters, outWorkspace, "mosaic", "
                                             "MAXIMUM", "MATCH")
 print("Mosaic created")
 
-
+"""
 # Check out the ArcGIS Spatial Analyst extension license
 arcpy.CheckOutExtension("Spatial")
 
@@ -161,4 +130,4 @@ except:
     print(e.args[0])
 finally:
     arcpy.CheckInExtension("Spatial")
-
+"""
