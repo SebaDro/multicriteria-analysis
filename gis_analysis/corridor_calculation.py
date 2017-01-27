@@ -86,7 +86,7 @@ for feature in featureList:
         print(e.args[0])
 
 inRasters = inRasters[0:-1]
-print inRasters
+#print inRasters
 
 arcpy.AddMessage("Mosaic will be created...")
 # raster datasets must have the same extent
