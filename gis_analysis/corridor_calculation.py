@@ -5,28 +5,6 @@ import os
 from arcpy import env
 from arcpy.sa import *
 
-"""
-# get parameters from the script parameters
-# and ensure the correct number of parameters
-if len(sys.argv) >= 6:
-    inWorkspace = sys.argv[1]
-    outWorkspace = sys.argv[2]
-    maskFile = sys.argv[3]
-    sourceStart = sys.argv[4]
-    sourceEnd = sys.argv[5]
-    tablePath = sys.argv[6]
-    print "Input Workspace: {0}; Output workspace: {1}; Mask: {2}; Source start: {3}; Source end: {4}; Path table: {5} ".format(
-        inWorkspace,
-        outWorkspace,
-        maskFile,
-        sourceStart,
-        sourceEnd,
-        tablePath)
-else:
-    print "Usage: corridor_calculation <input_workspace> <output_workspace> <source_start> <source_end>"
-    sys.exit()
-"""
-
 inWorkspace = arcpy.GetParameterAsText(0)
 outWorkspace = arcpy.GetParameterAsText(1)
 maskFile = arcpy.GetParameterAsText(2)
@@ -46,8 +24,7 @@ arcpy.env.overwriteOutput = True
 # Set local variables
 polygon = "ca_counties.shp"
 valField = "weight"
-assignmentTypePolygon = "MAXIMUM_AREA"
-assignmentTypePolyline = "MAXIMUM_AREA"
+assignmentType = "MAXIMUM_AREA"
 # priorityField = "MALES"
 cellSize = 5.0
 joinFieldIn = "type"
@@ -71,15 +48,18 @@ def featureToRaster(feature):
     fields = arcpy.ListFields(feature, "weight")
     if len(fields) == 1:
         arcpy.DeleteField_management(feature, ["weight"])
-    # join the <weight> field from the <weight> table
+    # join the <weight> field from the weight table
     arcpy.JoinField_management(feature, joinFieldIn, weightTable, joinField, ["weight"])
     # create a raster dataset from the polygon
     if desc.shapeType == "Polygon":
-        rasterResult = arcpy.PolygonToRaster_conversion(feature, valField, outRaster, assignmentTypePolygon, "",
+        rasterResult = arcpy.PolygonToRaster_conversion(feature, valField, outRaster, assignmentType, "",
                                                         cellSize)
     elif desc.shapeType == "Polyline":
-        rasterResult = arcpy.PolylineToRaster_conversion(feature, valField, outRaster, assignmentTypePolyline, "",
+        rasterResult = arcpy.PolylineToRaster_conversion(feature, valField, outRaster, assignmentType, "",
                                                          cellSize)
+    else:
+        rasterResult = arcpy.PointToRaster_conversion(feature, valField, outRaster, assignmentType, "",
+                                                      cellSize)
     arcpy.AddMessage("Raster {0} has been created.".format(rasterResult))
     return rasterResult
 
@@ -129,11 +109,11 @@ try:
     print("OutCostDistanceStart created")
     # Execute CostDistance for end point
     print("create OutCostDistanceEnd")
-    arcpy.AddMessage("OutCostDistanceStart will be created.")
+    arcpy.AddMessage("OutCostDistanceEnd will be created.")
     outCostDistanceEnd = CostDistance(sourceEnd, mosaic, "", "")
     print("save OutCostDistanceEnd")
     outCostDistanceEnd.save(os.path.join(outWorkspace, "distance_end"))
-    arcpy.AddMessage("OutCostDistanceStart has been created.")
+    arcpy.AddMessage("OutCostDistanceEnd has been created.")
     print("OutCostDistanceEnd created")
     # Execute Corridor
     arcpy.AddMessage("Corridor will be created.")
