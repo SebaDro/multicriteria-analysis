@@ -90,7 +90,7 @@ print inRasters
 
 arcpy.AddMessage("Mosaic will be created...")
 # raster datasets must have the same extent
-mosaic = arcpy.MosaicToNewRaster_management(inRasters, outWorkspace, "mosaic", "", "8_BIT_UNSIGNED", "5", "1",
+mosaic = arcpy.MosaicToNewRaster_management(inRasters, outWorkspace, "mosaic", "", "32_BIT_FLOAT", "5", "1",
                                             "MAXIMUM", "MATCH")
 arcpy.AddMessage("Mosaic has been created.")
 print("Mosaic created")
